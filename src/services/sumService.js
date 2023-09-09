@@ -1,41 +1,45 @@
-export async function sumTwoNumbers(req, res, next) {
-  const num1 = parseFloat(req.params.num1);
-  const num2 = parseFloat(req.params.num2);
+const redis = require("redis");
 
-  let results;
+let redisClient;
 
+(async () => {
+  redisClient = redis.createClient();
+
+  redisClient.on("error", (error) => console.error(`Error : ${error}`));
+  await redisClient.connect();
+})();
+
+exports.sumNumbers = async (num1, num2) => {
   if (isNaN(num1) || isNaN(num2)) {
-    res.status(400).send("Números inválidos. Por favor, insira números válidos.");
-    return;
+    throw "Números inválidos. Por favor, insira números válidos.";
   }
   
   const cacheKey = `${num1}_${num2}`;
-
-  try {
+  let result, fromCache
+  
+  try{
     const cacheResults = await redisClient.get(cacheKey);
-    if (cacheResults) {
-      results = JSON.parse(cacheResults);
-      res.send({
-        fromCache: true,
-        data: results,
-      });
+    if(cacheResults){
+      result = JSON.parse(cacheResults);
+      fromCache = true;
     } else {
-      // Calculate the sum
-      const sum = num1 + num2;
-
-      // Store the sum in the cache
-      await redisClient.set(cacheKey, JSON.stringify(sum), {
+      result = num1 + num2;
+      fromCache = false;
+      await redisClient.set(cacheKey, JSON.stringify(result), {
         EX: 180,
         NX: true,
       });
-
-      res.send({
-        fromCache: false,
-        data: sum,
-      });
     }
-  } catch (error) {
-    console.error(error);
-    res.status(500).send("Ocorreu um erro ao processar a solicitação.");
+
+    const response = {
+      fromCache: fromCache,
+      result: result,
+    }
+
+    return response;
+
+  }catch(error){
+    throw error;
   }
+
 }

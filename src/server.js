@@ -1,17 +1,22 @@
 const express = require("express");
 const redis = require("redis");
-const fs = require("fs");
 const http = require("http");
 const socketIo = require("socket.io");
-const messageService = require("./services/messageService")
+const generalRoutes = require('./routes/generalRoutes');
+
 const app = express();
 const port = process.env.PORT || 3000;
 const server = http.createServer(app); // Criar um servidor HTTP a partir do Express
 const io = socketIo(server);
-
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
-const initialMessages = messageService.initialMessages();
+app.use('/', generalRoutes)
+
+const initialMessages = [
+  { mensagem: "Olá", resposta: "Olá! Como posso ajudar você?" },
+  { mensagem: "Como está o tempo hoje?", resposta: "Eu não sei, desculpe!" },
+  { mensagem: "Qual é o meu saldo?", resposta: "Seu saldo é de $1000." },
+];
 
 let redisClient;
 

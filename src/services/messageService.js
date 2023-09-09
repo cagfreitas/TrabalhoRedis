@@ -1,14 +1,24 @@
+const redis = require("redis");
 
-export function initialMessages () {
-  const messages = [
-    { mensagem: "Olá", resposta: "Olá! Como posso ajudar você?" },
-    { mensagem: "Como está o tempo hoje?", resposta: "Eu não sei, desculpe!" },
-    { mensagem: "Qual é o meu saldo?", resposta: "Seu saldo é de $1000." },
-  ];
-   return messages
+let redisClient;
+
+(async () => {
+  redisClient = redis.createClient();
+
+  redisClient.on("error", (error) => console.error(`Error : ${error}`));
+  await redisClient.connect();
+})();
+
+exports.getMessage = async (receivedMessage) => {
+  try {
+    const response = await redisClient.get(receivedMessage);
+    return response
+  } catch (error) {
+    console.error("Erro ao recuperar mensagem:", error);
+  }
 }
 
-export async function publicarMensagem(mensagem) {
+exports.publishMessage = async (mensagem) => {
   try {
     await redisClient.publish("canalMensagens", mensagem);
   } catch (error) {
@@ -16,45 +26,26 @@ export async function publicarMensagem(mensagem) {
   }
 }
 
-export async function responderMensagem(req,res){
-    const mensagemRecebida = req.body.mensagem;
-    try {
-      const resposta = await redisClient.get(mensagemRecebida);
-  
-      if (resposta) {
-        res.status(200).send({ resposta });
-      } else {
-        res.status(200).send({ resposta: "Não entendemos a pergunta. Aguarde, alguém entrará em contato." });
-      }
-  
-      // Publicar a mensagem recebida no canal de mensagens
-      await publicarMensagem(mensagemRecebida);
-    } catch (error) {
-      console.error(error);
-      res.status(500).send("Ocorreu um erro ao processar a solicitação.");
-    }
-}
 
+// io.on("connection", (socket) => {
+//   const redisSubscriber = redis.createClient();
 
-io.on("connection", (socket) => {
-  const redisSubscriber = redis.createClient();
+//   redisSubscriber.on("error", (error) => console.error(`Error: ${error}`));
 
-  redisSubscriber.on("error", (error) => console.error(`Error: ${error}`));
+//   // Inscrever-se no canal de mensagens
+//   redisSubscriber.subscribe("canalMensagens");
 
-  // Inscrever-se no canal de mensagens
-  redisSubscriber.subscribe("canalMensagens");
+//   // Quando uma mensagem é recebida no canal, envie-a para o cliente via Socket.io
+//   redisSubscriber.on("message", (channel, message) => {
+//     socket.emit("mensagem", { canal: channel, mensagem: message });
+//   });
 
-  // Quando uma mensagem é recebida no canal, envie-a para o cliente via Socket.io
-  redisSubscriber.on("message", (channel, message) => {
-    socket.emit("mensagem", { canal: channel, mensagem: message });
-  });
-
-  socket.on("disconnect", () => {
-    // Desinscrever-se do canal e fechar a conexão do cliente de subscrição quando o cliente se desconectar
-    redisSubscriber.unsubscribe();
-    redisSubscriber.quit();
-  });
-});
+//   socket.on("disconnect", () => {
+//     // Desinscrever-se do canal e fechar a conexão do cliente de subscrição quando o cliente se desconectar
+//     redisSubscriber.unsubscribe();
+//     redisSubscriber.quit();
+//   });
+// });
 
 // async function cacheMessage(req, res) { 
  
