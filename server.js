@@ -1,10 +1,13 @@
 const express = require("express");
-const axios = require("axios");
 const redis = require("redis");
 const fs = require("fs");
+const http = require("http");
+const socketIo = require("socket.io");
 
 const app = express();
 const port = process.env.PORT || 3000;
+const server = http.createServer(app); // Criar um servidor HTTP a partir do Express
+const io = socketIo(server);
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
@@ -41,11 +44,10 @@ async function cacheSumData(req, res, next) {
   let results;
 
   if (isNaN(num1) || isNaN(num2)) {
-    res.status(400).send("Invalid input. Please provide valid numbers.");
+    res.status(400).send("Números inválidos. Por favor, insira números válidos.");
     return;
   }
   
-  // Create a unique cache key for this sum
   const cacheKey = `${num1}_${num2}`;
 
   try {
@@ -73,7 +75,7 @@ async function cacheSumData(req, res, next) {
     }
   } catch (error) {
     console.error(error);
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("Ocorreu um erro ao processar a solicitação.");
   }
 }
 
@@ -134,10 +136,58 @@ async function alterarTexto(req, res) {
     }
 }
 
+async function publicarMensagem(mensagem) {
+  try {
+    await redisClient.publish("canalMensagens", mensagem);
+  } catch (error) {
+    console.error("Erro ao publicar mensagem:", error);
+  }
+}
+
+async function responderMensagem(req,res){
+    const mensagemRecebida = req.body.mensagem;
+    try {
+      const resposta = await redisClient.get(mensagemRecebida);
+  
+      if (resposta) {
+        res.status(200).send({ resposta });
+      } else {
+        res.status(200).send({ resposta: "Não entendemos a pergunta. Aguarde, alguém entrará em contato." });
+      }
+  
+      // Publicar a mensagem recebida no canal de mensagens
+      await publicarMensagem(mensagemRecebida);
+    } catch (error) {
+      console.error(error);
+      res.status(500).send("Ocorreu um erro ao processar a solicitação.");
+    }
+}
+
+
+io.on("connection", (socket) => {
+  const redisSubscriber = redis.createClient();
+
+  redisSubscriber.on("error", (error) => console.error(`Error: ${error}`));
+
+  // Inscrever-se no canal de mensagens
+  redisSubscriber.subscribe("canalMensagens");
+
+  // Quando uma mensagem é recebida no canal, envie-a para o cliente via Socket.io
+  redisSubscriber.on("message", (channel, message) => {
+    socket.emit("mensagem", { canal: channel, mensagem: message });
+  });
+
+  socket.on("disconnect", () => {
+    // Desinscrever-se do canal e fechar a conexão do cliente de subscrição quando o cliente se desconectar
+    redisSubscriber.unsubscribe();
+    redisSubscriber.quit();
+  });
+});
+
 
 app.get("/sum/:num1/:num2", cacheSumData);
-app.post("/responderMensagem", cacheMessage);
 app.post("/alterar-arquivo/:nomeDoArquivo", alterarTexto);
+app.post("/responderMensagem", responderMensagem);
 
 
 
