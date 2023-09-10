@@ -1,13 +1,13 @@
 const express = require("express");
 const redis = require("redis");
-const http = require("http");
-const socketIo = require("socket.io");
 const generalRoutes = require('./routes/generalRoutes');
+const webSocketConnection = require('./wsServer/app-ws')
+const http = require('http')
 
 const app = express();
 const port = process.env.PORT || 3000;
-const server = http.createServer(app); // Criar um servidor HTTP a partir do Express
-const io = socketIo(server);
+const server = http.createServer(app);
+
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use('/', generalRoutes)
@@ -22,7 +22,6 @@ let redisClient;
 
 (async () => {
   redisClient = redis.createClient();
-
   redisClient.on("error", (error) => console.error(`Error : ${error}`));
   await redisClient.connect();
 })();
@@ -37,7 +36,8 @@ initialMessages.forEach((item) => {
   });
 });
 
+webSocketConnection.connectWebSocket(server)
 
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`App listening on port ${port}`);
 });

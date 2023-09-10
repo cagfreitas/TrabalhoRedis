@@ -1,13 +1,11 @@
+
 const redis = require("redis");
+const WebSocket = require('ws');
 
-let redisClient;
-
-(async () => {
-  redisClient = redis.createClient();
-
-  redisClient.on("error", (error) => console.error(`Error : ${error}`));
-  await redisClient.connect();
-})();
+const redisClient = redis.createClient();
+const redisPubClient = redis.createClient();
+redisClient.connect();
+redisPubClient.connect();
 
 exports.getMessage = async (receivedMessage) => {
   try {
@@ -18,34 +16,17 @@ exports.getMessage = async (receivedMessage) => {
   }
 }
 
-exports.publishMessage = async (mensagem) => {
-  try {
-    await redisClient.publish("canalMensagens", mensagem);
-  } catch (error) {
-    console.error("Erro ao publicar mensagem:", error);
-  }
+exports.publishMessage = (channel, value) =>{
+  redisPubClient.publish(channel, value);
 }
 
-
-// io.on("connection", (socket) => {
-//   const redisSubscriber = redis.createClient();
-
-//   redisSubscriber.on("error", (error) => console.error(`Error: ${error}`));
-
-//   // Inscrever-se no canal de mensagens
-//   redisSubscriber.subscribe("canalMensagens");
-
-//   // Quando uma mensagem é recebida no canal, envie-a para o cliente via Socket.io
-//   redisSubscriber.on("message", (channel, message) => {
-//     socket.emit("mensagem", { canal: channel, mensagem: message });
-//   });
-
-//   socket.on("disconnect", () => {
-//     // Desinscrever-se do canal e fechar a conexão do cliente de subscrição quando o cliente se desconectar
-//     redisSubscriber.unsubscribe();
-//     redisSubscriber.quit();
-//   });
-// });
+exports.subscribe = (channelSubscribed, callback) => {
+  redisClient.subscribe(channelSubscribed, (channel, message)=>{
+    console.log('Message arrived')
+    console.log('serv'+ message)
+    callback(message)
+  })
+}
 
 // async function cacheMessage(req, res) { 
  
