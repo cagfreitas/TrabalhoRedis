@@ -1,10 +1,15 @@
 {
   "version": 2,
-  "name": "trabalho-redis",
   "builds": [
-     { "src": "./src/server.js", "use": "@vercel/node" }
+    {
+      "src": "./index.vercel.js",
+      "use": "@vercel/node"
+    }
   ],
   "routes": [
-     { "src": "/(.*)", "dest": "./src/server.js" }
+    {
+      "src": "/(.*)",
+      "dest": "/"
+    }
   ]
 }
